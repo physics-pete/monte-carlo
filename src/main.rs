@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use rand::distributions::Standard;
+use rand::{distributions::{Distribution, Standard}, Rng};
 
 
 #[derive(Copy, Clone)]
@@ -48,6 +48,15 @@ enum ChangeChoice {
 }
 
 impl Distribution<ChangeChoice> for Standard {
+    fn sample<R: rand::prelude::Rng + ?Sized>(&self, rng: &mut R) -> ChangeChoice {
+        match rng.gen_range(1..=4) {
+            1 => ChangeChoice::K,
+            2 => ChangeChoice::L,
+            3 => ChangeChoice::M,
+            4 => ChangeChoice::Spin,
+            _ => ChangeChoice::K
+        }
+    }
 }
 
 impl State {
@@ -64,8 +73,24 @@ impl State {
     }
 
     fn generate_new_state(&self) -> State {
+        let mut rng = rand::thread_rng();
+        let choice: ChangeChoice = rand::random();
 
-        todo!()
+        match choice {
+            ChangeChoice::K => State { k: rng.gen_range(1..10), l: self.l, m: self.m, spin: self.spin },
+            ChangeChoice::L => State { k: self.k, l: rng.gen_range(1..10), m: self.m, spin: self.spin },
+            ChangeChoice::M => State { k: self.k, l: self.l, m: rng.gen_range(1..10), spin: self.spin },
+            ChangeChoice::Spin => State { 
+                k: rng.gen_range(1..10), 
+                l: self.l, 
+                m: self.m, 
+                spin: match rng.gen_range(1..=2) {
+                    1 => Spin::Up,
+                    2 => Spin::Down,
+                    _ => Spin::Up
+                }
+            },
+        }
     }
 }
 
@@ -94,17 +119,26 @@ fn main() {
     let mut states: Vec<State> = vec![];
     states.push(s.clone());
 
-    for _ in 1..10 {
+    let mut rng = rand::thread_rng();
+
+    for _ in 1..100 {
         let new_state = s.generate_new_state();
-        let e = k.apply_state_state(&s);
+        let new_e = k.apply_state_state(&new_state);
         
-        beta += 0.1f32;
+        beta += 0.01f32;
 
-        let prop = (beta * (e - old_e)).exp();
+        let prop = (beta * (old_e - new_e)).exp();
 
+        let p: f32 = rng.gen_range(0.0..1.0);
 
-        println!("Hello, world! {}", prop);
-        old_e = e;
+        if p < prop {
+            old_e = new_e;
+            s = new_state;
+            states.push(s.clone());
+        }
+        
+        println!("{}", s);
+
     }
 
 }
